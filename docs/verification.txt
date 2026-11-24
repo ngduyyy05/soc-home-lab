@@ -1,0 +1,77 @@
+Local verification | 2026-11-24
+Commands below use a temporary Docker Compose project and synthetic controls.
+
+$ docker compose --project-name soc-home-lab-verification config --quiet
+Compose configuration valid
+
+$ bash -n configs/elastic/certificates.sh
+$ bash -n configs/elastic/kibana-credentials.sh
+Both bootstrap scripts passed bash -n.
+
+Python ElementTree, PyYAML and NDJSON structural checks:
+Sysmon XML parsed (schema declaration 4.90).
+compose.yml: YAML parsed
+configs/suricata/suricata.yaml: YAML parsed
+detections/dashboard.ndjson: 3 objects parsed
+detections/rules.ndjson: 3 objects parsed
+
+$ Sysmon64.exe -accepteula -s 4.90
+Sysmon schema command exit: 0
+System Monitor v15.22 - System activity monitor
+
+Microsoft Sysmon executable and manifest comparison:
+Sysmon executable signature: Valid
+Sysmon manifest schema: 4.90
+Event filter names present: DnsQuery, FileCreate, NetworkConnect, ProcessCreate
+
+$ docker run --rm --network none --mount "type=bind,source=<config-path>,target=/lab,readonly" jasonish/suricata:8.0 -T -c /lab/suricata.yaml -S /lab/lab.rules
+Notice: suricata: This is Suricata version 8.0.8 RELEASE running in SYSTEM mode
+Info: detect: 1 rule files processed. 2 rules successfully loaded, 0 rules failed, 0 rules skipped
+Notice: suricata: Configuration provided was successfully loaded. Exiting.
+
+Offline Scapy fixture: two benign DNS queries (marker and control) and a
+benign HTTP request with a TCP handshake, response and acknowledgement.
+
+$ docker run --rm --network none --mount "type=bind,source=<config-path>,target=/lab,readonly" --mount "type=bind,source=<scratch-path>,target=/output" jasonish/suricata:8.0 -c /lab/suricata.yaml -S /lab/lab.rules -r /output/benign.pcap -l /output
+Info: pcap: pcap file /output/benign.pcap end of file reached (pcap err code 0)
+Notice: pcap: read 1 file, 8 packets, 566 bytes
+
+EVE alert groups by signature ID:
+Name    Count
+----    -----
+1000001     1
+1000002     1
+
+Initial Elasticsearch health accepted unauthenticated requests too early.
+The Kibana credential bootstrap returned:
+curl: (22) The requested URL returned error: 401
+
+After switching Elasticsearch health to authenticated readiness:
+Elasticsearch became healthy and Kibana started.
+GET /api/status, POST /api/saved_objects/_import, POST /api/detection_engine/rules/_import:
+Kibana 8.19.26 status: available
+Kibana saved objects: HTTP 200
+{"success": true, "successCount": 3}
+Elastic Security rules: HTTP 200
+{"success": true, "success_count": 3, "errors": []}
+Kibana export types: dashboard, index-pattern, search
+
+The first synthetic alert check used a partial PowerShell phrase against an
+automatically mapped keyword. It reported:
+Synthetic alerts by rule: {"soc-lab-failed-remote-interactive": 1, "soc-lab-suricata-markers": 1}
+
+Fresh Compose start after adding the TLS chain and using the full PowerShell
+marker phrase. The runner imported the final files, indexed three synthetic
+documents, enabled the rules and grouped real alert records by rule ID:
+Elasticsearch TLS server chain certificates: 2
+Kibana 8.19.26 status: available
+dashboard.ndjson: HTTP 200, 3 imported
+rules.ndjson: HTTP 200, 3 imported
+Indexed 3 synthetic lab controls.
+Synthetic alerts by rule: {"soc-lab-failed-remote-interactive": 1, "soc-lab-powershell-marker": 1, "soc-lab-suricata-markers": 1}
+
+Live Fleet enrollment, endpoint event ingestion, dashboard screenshots and
+detection coverage/false-positive measurements — TODO(user): fill after running.
+
+$ gitleaks git --staged --no-banner --redact .
+9:45PM INF no leaks found
