@@ -1,0 +1,75 @@
+name: soc-home-lab
+
+services:
+  certificates:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION:-8.19.26}
+    user: "0"
+    environment:
+      ES_LAB_DNS: ${ES_LAB_DNS:-elastic.lab.test}
+    entrypoint: ["/bin/bash", "/lab/certificates.sh"]
+    volumes:
+      - ./configs/elastic/certificates.sh:/lab/certificates.sh:ro
+      - certs:/certs
+      - ca-public:/ca-public
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION:-8.19.26}
+    depends_on:
+      certificates:
+        condition: service_completed_successfully
+    environment:
+      node.name: elasticsearch
+      discovery.type: single-node
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD in .env}
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+      xpack.security.enabled: "true"
+      xpack.security.http.ssl.enabled: "true"
+      xpack.security.http.ssl.key: certs/elasticsearch/elasticsearch.key
+      xpack.security.http.ssl.certificate: certs/elasticsearch/elasticsearch.crt
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs:ro
+      - data:/usr/share/elasticsearch/data
+    ports:
+      - "${ES_BIND_HOST:-127.0.0.1}:9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail --cacert config/certs/ca.crt --user \"elastic:$$ELASTIC_PASSWORD\" https://localhost:9200/_security/_authenticate >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  kibana-credentials:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION:-8.19.26}
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD in .env}
+      KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:?Set KIBANA_SYSTEM_PASSWORD in .env}
+    entrypoint: ["/bin/bash", "/lab/kibana-credentials.sh"]
+    volumes:
+      - ./configs/elastic/kibana-credentials.sh:/lab/kibana-credentials.sh:ro
+      - ca-public:/ca:ro
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${STACK_VERSION:-8.19.26}
+    depends_on:
+      kibana-credentials:
+        condition: service_completed_successfully
+    environment:
+      SERVER_HOST: "0.0.0.0"
+      ELASTICSEARCH_HOSTS: '["https://elasticsearch:9200"]'
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:?Set KIBANA_SYSTEM_PASSWORD in .env}
+      ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: '["/usr/share/kibana/config/ca/ca.crt"]'
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTION_KEY:?Set KIBANA_ENCRYPTION_KEY in .env}
+    volumes:
+      - ca-public:/usr/share/kibana/config/ca:ro
+      - kibana-data:/usr/share/kibana/data
+    ports:
+      - "127.0.0.1:5601:5601"
+
+volumes:
+  certs:
+  ca-public:
+  data:
+  kibana-data:
