@@ -12,9 +12,10 @@ if [[ ! -f /certs/elasticsearch/elasticsearch.crt || ! -f /certs/elasticsearch/e
     cp "$work/ca/ca.crt" /certs/ca.crt
 fi
 
+cat /certs/elasticsearch/elasticsearch.crt /certs/ca.crt > /certs/elasticsearch/fullchain.crt
 chgrp -R 0 /certs
 chmod 750 /certs /certs/elasticsearch
 chmod 640 /certs/elasticsearch/elasticsearch.key
-chmod 644 /certs/elasticsearch/elasticsearch.crt /certs/ca.crt
+chmod 644 /certs/elasticsearch/elasticsearch.crt /certs/elasticsearch/fullchain.crt /certs/ca.crt
 cp /certs/ca.crt /ca-public/ca.crt
 chmod 644 /ca-public/ca.crt

@@ -3,11 +3,11 @@
 ```mermaid
 flowchart TB
     subgraph H["Host-only lab segment"]
-      W["Windows VM\nElastic Agent + Sysmon"]
-      S["Linux VM\nElastic Agent + Suricata"]
-      F["Elastic VM\nFleet Server · TCP 8220"]
-      E["Elastic VM\nElasticsearch · TCP 9200"]
-      K["Elastic VM\nKibana · loopback TCP 5601"]
+      W["Windows VM · Elastic Agent + Sysmon"]
+      S["Linux VM · Elastic Agent + Suricata"]
+      F["Elastic VM · Fleet Server · TCP 8220"]
+      E["Elastic VM · Elasticsearch · TCP 9200"]
+      K["Elastic VM · Kibana · loopback TCP 5601"]
       W -->|Policy / TLS| F
       S -->|Policy / TLS| F
       W -->|Events / TLS| E

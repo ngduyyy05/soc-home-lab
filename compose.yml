@@ -25,7 +25,7 @@ services:
       xpack.security.enabled: "true"
       xpack.security.http.ssl.enabled: "true"
       xpack.security.http.ssl.key: certs/elasticsearch/elasticsearch.key
-      xpack.security.http.ssl.certificate: certs/elasticsearch/elasticsearch.crt
+      xpack.security.http.ssl.certificate: certs/elasticsearch/fullchain.crt
     volumes:
       - certs:/usr/share/elasticsearch/config/certs:ro
       - data:/usr/share/elasticsearch/data
